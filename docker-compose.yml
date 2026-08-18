@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: integrity-log-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: integritylog
+      POSTGRES_USER: integritylog
+      POSTGRES_PASSWORD: integritylog
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
