@@ -57,7 +57,7 @@ class AuditEventControllerTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"controller-test\"}"
+                objectMapper.readValue("{\"source\":\"controller-test\"}", java.util.Map.class)
         ));
 
         mockMvc.perform(post("/audit/events")

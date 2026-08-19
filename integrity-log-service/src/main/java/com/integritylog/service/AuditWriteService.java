@@ -1,13 +1,19 @@
 package com.integritylog.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integritylog.domain.AuditEvent;
 import com.integritylog.repository.AuditEventRepository;
 import com.integritylog.web.dto.CreateAuditEventRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Service
 public class AuditWriteService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AuditEventRepository repository;
     private final HashChainService hashChainService;
@@ -23,13 +29,13 @@ public class AuditWriteService {
                 .map(AuditEvent::getRecordHash)
                 .orElse(hashChainService.genesisHash());
 
-        String payload = request.payload();
+        String payloadJson = normalizePayload(request.payload());
         String contentHash = hashChainService.computeContentHash(
                 request.eventType(),
                 request.actorId(),
                 request.resourceType(),
                 request.resourceId(),
-                payload
+                payloadJson
         );
         String recordHash = hashChainService.computeRecordHash(previousHash, contentHash);
 
@@ -38,13 +44,25 @@ public class AuditWriteService {
                 request.actorId(),
                 request.resourceType(),
                 request.resourceId(),
-                payload,
+                payloadJson,
                 contentHash,
                 previousHash,
                 recordHash
         );
 
-        return repository.save(event);
+        AuditEvent saved = repository.saveAndFlush(event);
+        return repository.findById(saved.getId()).orElse(saved);
+    }
+
+    private String normalizePayload(Map<String, Object> payload) {
+        if (payload == null || payload.isEmpty()) {
+            return "{}";
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(payload);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize payload", e);
+        }
     }
 }
 

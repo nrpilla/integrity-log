@@ -1,5 +1,6 @@
 package com.integritylog.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integritylog.domain.AuditEvent;
 import com.integritylog.repository.AuditEventRepository;
 import com.integritylog.web.dto.CreateAuditEventRequest;
@@ -31,6 +32,8 @@ class AuditVerifyServiceTest {
         repository.deleteAll();
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Test
     void verifyChainReturnsValidForLinkedEvents() {
         writeService.append(new CreateAuditEventRequest(
@@ -38,14 +41,14 @@ class AuditVerifyServiceTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"valid-1\"}"
+                payload("{\"source\":\"valid-1\"}")
         ));
         writeService.append(new CreateAuditEventRequest(
                 "CONSENT_REVOKED",
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"valid-2\"}"
+                payload("{\"source\":\"valid-2\"}")
         ));
 
         var response = verifyService.verifyChain();
@@ -63,7 +66,7 @@ class AuditVerifyServiceTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"tamper-1\"}"
+                payload("{\"source\":\"tamper-1\"}")
         ));
 
         AuditEvent event = repository.findAllByOrderBySequenceNumberAsc().getFirst();
@@ -76,5 +79,13 @@ class AuditVerifyServiceTest {
         assertThat(response.brokenAtSequence()).isEqualTo(event.getSequenceNumber());
         assertThat(response.violationType()).isEqualTo(ViolationType.RECORD_HASH);
         assertThat(response.message()).contains("Record hash mismatch");
+    }
+
+    private java.util.Map<String, Object> payload(String json) {
+        try {
+            return objectMapper.readValue(json, java.util.Map.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid payload JSON", e);
+        }
     }
 }

@@ -60,6 +60,9 @@ Detailed design notes can be documented separately in DESIGN.md when needed.
 | GET | /audit/events | Query events (e.g. by resource) |
 | GET | /audit/events/{id} | Get a single event |
 | GET | /audit/verify | Verify integrity of the full chain |
+
+Implementation note: the API accepts a structured JSON payload object and assigns timestamps server-side at `created_at` in PostgreSQL. Caller-supplied timestamps are not used to preserve a trusted audit trail.
+
 ## Tamper Demo (Scenario A)
 After events are written through the API, verification should report a valid chain. Directly updating an event row in PostgreSQL (outside the application) should cause verification to fail and identify where the chain broke. This shows that integrity checks detect unauthorized database changes.
 ## Windows Timezone Note

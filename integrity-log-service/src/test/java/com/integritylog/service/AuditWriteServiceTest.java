@@ -1,5 +1,7 @@
 package com.integritylog.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.integritylog.domain.AuditEvent;
 import com.integritylog.repository.AuditEventRepository;
 import com.integritylog.web.dto.CreateAuditEventRequest;
@@ -26,6 +28,8 @@ class AuditWriteServiceTest {
         repository.deleteAll();
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Test
     void appendCreatesAHashLinkedSequence() {
         var first = writeService.append(new CreateAuditEventRequest(
@@ -33,7 +37,7 @@ class AuditWriteServiceTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"one\"}"
+                payload("{\"source\":\"one\"}")
         ));
 
         var second = writeService.append(new CreateAuditEventRequest(
@@ -41,7 +45,7 @@ class AuditWriteServiceTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"two\"}"
+                payload("{\"source\":\"two\"}")
         ));
 
         var saved = repository.findAllByOrderBySequenceNumberAsc();
@@ -53,5 +57,15 @@ class AuditWriteServiceTest {
 
         assertThat(saved.get(0).getContentHash()).isNotBlank();
         assertThat(saved.get(0).getRecordHash()).isNotBlank();
+        assertThat(saved.get(0).getSequenceNumber()).isNotNull();
+        assertThat(saved.get(0).getCreatedAt()).isNotNull();
+    }
+
+    private java.util.Map<String, Object> payload(String json) {
+        try {
+            return objectMapper.readValue(json, java.util.Map.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid payload JSON", e);
+        }
     }
 }

@@ -1,5 +1,6 @@
 package com.integritylog.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integritylog.repository.AuditEventRepository;
 import com.integritylog.web.dto.CreateAuditEventRequest;
 import org.junit.jupiter.api.AfterEach;
@@ -9,8 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
-
-import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -32,6 +31,8 @@ class AuditQueryServiceTest {
         repository.deleteAll();
     }
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Test
     void queryMatchesExactFilterCriteria() {
         var first = writeService.append(new CreateAuditEventRequest(
@@ -39,21 +40,21 @@ class AuditQueryServiceTest {
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"query-a\"}"
+                payload("{\"source\":\"query-a\"}")
         ));
         writeService.append(new CreateAuditEventRequest(
                 "CONSENT_GRANTED",
                 "user-1",
                 "consent",
                 "c-100",
-                "{\"source\":\"query-b\"}"
+                payload("{\"source\":\"query-b\"}")
         ));
         writeService.append(new CreateAuditEventRequest(
                 "USER_LOGIN",
                 "user-2",
                 "user",
                 "u-77",
-                "{\"source\":\"other\"}"
+                payload("{\"source\":\"other\"}")
         ));
 
         var result = queryService.query(
@@ -65,5 +66,13 @@ class AuditQueryServiceTest {
         assertThat(result.getContent()).allMatch(event -> event.getActorId().equals("user-1"));
         assertThat(result.getContent()).allMatch(event -> event.getResourceType().equals("consent"));
         assertThat(result.getContent()).allMatch(event -> event.getResourceId().equals("c-100"));
+    }
+
+    private java.util.Map<String, Object> payload(String json) {
+        try {
+            return objectMapper.readValue(json, java.util.Map.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid payload JSON", e);
+        }
     }
 }
