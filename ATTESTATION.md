@@ -1,5 +1,3 @@
-ATTESTATION.md template
-Replace the bracketed placeholders with your real information:
 # Attestation
 | Field | Value |
 |-------|-------|
