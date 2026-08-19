@@ -1,13 +1,18 @@
 package com.integritylog.web;
 
 import com.integritylog.domain.AuditEvent;
+import com.integritylog.service.AuditEventQuery;
 import com.integritylog.service.AuditQueryService;
 import com.integritylog.service.AuditVerifyService;
 import com.integritylog.service.AuditWriteService;
 import com.integritylog.web.dto.AuditEventResponse;
 import com.integritylog.web.dto.CreateAuditEventRequest;
+import com.integritylog.web.dto.PagedAuditEventResponse;
 import com.integritylog.web.dto.VerifyResponse;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,12 +52,26 @@ public class AuditEventController {
     }
 
     @GetMapping("/events")
-    public List<AuditEventResponse> query(
+    public PagedAuditEventResponse query(
+            @RequestParam(required = false) String actorId,
             @RequestParam(required = false) String resourceType,
-            @RequestParam(required = false) String resourceId) {
-        return queryService.query(resourceType, resourceId).stream()
-                .map(AuditEventResponse::from)
-                .toList();
+            @RequestParam(required = false) String resourceId,
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        if (size < 1 || size > 100) {
+            throw new IllegalArgumentException("size must be between 1 and 100");
+        }
+        AuditEventQuery query = new AuditEventQuery(actorId, resourceType, resourceId, eventType, from, to);
+        PageRequest pageable = PageRequest.of(page, size, Sort.by("sequenceNumber").ascending());
+        return PagedAuditEventResponse.from(queryService.query(query, pageable));
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public String handleBadRequest(IllegalArgumentException ex) {
+        return ex.getMessage();
     }
 
     @GetMapping("/events/{id}")

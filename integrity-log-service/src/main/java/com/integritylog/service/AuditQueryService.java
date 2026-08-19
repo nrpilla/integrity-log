@@ -2,7 +2,10 @@ package com.integritylog.service;
 
 import com.integritylog.domain.AuditEvent;
 import com.integritylog.repository.AuditEventRepository;
+import com.integritylog.repository.AuditEventSpecifications;
 import com.integritylog.web.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,11 +27,7 @@ public class AuditQueryService {
                 .orElseThrow(() -> new ResourceNotFoundException("Audit event not found: " + id));
     }
 
-    public List<AuditEvent> query(String resourceType, String resourceId) {
-        if (resourceType != null && resourceId != null) {
-            return repository.findByResourceTypeAndResourceIdOrderBySequenceNumberAsc(
-                    resourceType, resourceId);
-        }
-        return repository.findAllByOrderBySequenceNumberAsc();
+    public Page<AuditEvent> query(AuditEventQuery query, Pageable pageable) {
+        return repository.findAll(AuditEventSpecifications.matches(query), pageable);
     }
 }
