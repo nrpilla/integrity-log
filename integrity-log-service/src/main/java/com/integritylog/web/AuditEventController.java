@@ -5,6 +5,8 @@ import com.integritylog.service.AuditEventQuery;
 import com.integritylog.service.AuditQueryService;
 import com.integritylog.service.AuditVerifyService;
 import com.integritylog.service.AuditWriteService;
+import com.integritylog.service.AuditArchiveService;
+import com.integritylog.service.RedactionService;
 import com.integritylog.web.dto.AuditEventResponse;
 import com.integritylog.web.dto.CreateAuditEventRequest;
 import com.integritylog.web.dto.PagedAuditEventResponse;
@@ -36,13 +38,30 @@ public class AuditEventController {
     private final AuditWriteService writeService;
     private final AuditQueryService queryService;
     private final AuditVerifyService verifyService;
+    private final AuditArchiveService auditArchiveService;
+    private final com.integritylog.service.RedactionService redactionService;
+    private final com.integritylog.service.AuditExportService auditExportService;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AuditEventController(AuditWriteService writeService,
                                 AuditQueryService queryService,
-                                AuditVerifyService verifyService) {
+                                AuditVerifyService verifyService,
+                                AuditArchiveService auditArchiveService,
+                                com.integritylog.service.RedactionService redactionService,
+                                com.integritylog.service.AuditExportService auditExportService) {
         this.writeService = writeService;
         this.queryService = queryService;
         this.verifyService = verifyService;
+        this.auditArchiveService = auditArchiveService;
+        this.redactionService = redactionService;
+        this.auditExportService = auditExportService;
+    }
+
+    // Backwards-compatible constructor for tests and callers that only provide core services
+    public AuditEventController(AuditWriteService writeService,
+                                AuditQueryService queryService,
+                                AuditVerifyService verifyService) {
+        this(writeService, queryService, verifyService, null, null, null);
     }
 
     @PostMapping("/events")
@@ -82,6 +101,29 @@ public class AuditEventController {
     @GetMapping("/verify")
     public VerifyResponse verify() {
         return verifyService.verifyChain();
+    }
+
+    @PostMapping("/events/{id}/archive")
+    public ResponseEntity<java.util.Map<String,String>> archive(@PathVariable java.util.UUID id) {
+        boolean newly = auditArchiveService.archive(id);
+        if (newly) {
+            return ResponseEntity.ok(java.util.Map.of("status", "archived"));
+        } else {
+            return ResponseEntity.ok(java.util.Map.of("status", "already_archived"));
+        }
+    }
+
+    @PostMapping("/events/{id}/redact")
+    public com.integritylog.web.dto.AuditEventResponse redact(@PathVariable java.util.UUID id,
+                                                              @RequestBody com.integritylog.web.dto.RedactRequest req) {
+        var saved = redactionService.redact(id, req.fields(), req.redactedBy());
+        return com.integritylog.web.dto.AuditEventResponse.from(saved);
+    }
+
+    @GetMapping("/export")
+    public java.util.Map<String, Object> export(@RequestParam(required = false) String actorId,
+                                                @RequestParam(required = false) String resourceId) {
+        return auditExportService.export(java.util.Optional.ofNullable(actorId), java.util.Optional.ofNullable(resourceId));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

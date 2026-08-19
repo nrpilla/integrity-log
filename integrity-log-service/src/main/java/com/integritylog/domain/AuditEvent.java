@@ -48,6 +48,15 @@ public class AuditEvent {
     @Column(name = "record_hash", nullable = false, length = 64)
     private String recordHash;
 
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    @Column(name = "redacted", nullable = false)
+    private boolean redacted = false;
+
+    @Column(name = "redaction_proof_id")
+    private java.util.UUID redactionProofId;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -78,4 +87,13 @@ public class AuditEvent {
     public String getPreviousHash() { return previousHash; }
     public String getRecordHash() { return recordHash; }
     public Instant getCreatedAt() { return createdAt; }
+
+    public Instant getArchivedAt() { return archivedAt; }
+    public boolean isRedacted() { return redacted; }
+    public java.util.UUID getRedactionProofId() { return redactionProofId; }
+
+    public void setPayload(String payload) { this.payload = payload; }
+    public void setRedacted(boolean redacted) { this.redacted = redacted; }
+    public void setRedactionProofId(java.util.UUID proofId) { this.redactionProofId = proofId; }
+    public void setArchivedAt(Instant archivedAt) { this.archivedAt = archivedAt; }
 }
