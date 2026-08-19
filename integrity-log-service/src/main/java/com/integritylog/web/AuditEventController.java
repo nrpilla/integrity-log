@@ -6,8 +6,11 @@ import com.integritylog.service.AuditQueryService;
 import com.integritylog.service.AuditVerifyService;
 import com.integritylog.service.AuditWriteService;
 import com.integritylog.service.AuditArchiveService;
+import com.integritylog.service.ClientAccessAuditService;
 import com.integritylog.service.RedactionService;
 import com.integritylog.web.dto.AuditEventResponse;
+import com.integritylog.web.dto.ClientAccessAuditRequest;
+import com.integritylog.web.dto.ClientAccessAuditResponse;
 import com.integritylog.web.dto.CreateAuditEventRequest;
 import com.integritylog.web.dto.PagedAuditEventResponse;
 import com.integritylog.web.dto.VerifyResponse;
@@ -41,6 +44,7 @@ public class AuditEventController {
     private final AuditArchiveService auditArchiveService;
     private final com.integritylog.service.RedactionService redactionService;
     private final com.integritylog.service.AuditExportService auditExportService;
+    private final ClientAccessAuditService clientAccessAuditService;
 
     @org.springframework.beans.factory.annotation.Autowired
     public AuditEventController(AuditWriteService writeService,
@@ -48,20 +52,29 @@ public class AuditEventController {
                                 AuditVerifyService verifyService,
                                 AuditArchiveService auditArchiveService,
                                 com.integritylog.service.RedactionService redactionService,
-                                com.integritylog.service.AuditExportService auditExportService) {
+                                com.integritylog.service.AuditExportService auditExportService,
+                                ClientAccessAuditService clientAccessAuditService) {
         this.writeService = writeService;
         this.queryService = queryService;
         this.verifyService = verifyService;
         this.auditArchiveService = auditArchiveService;
         this.redactionService = redactionService;
         this.auditExportService = auditExportService;
+        this.clientAccessAuditService = clientAccessAuditService;
     }
 
     // Backwards-compatible constructor for tests and callers that only provide core services
     public AuditEventController(AuditWriteService writeService,
                                 AuditQueryService queryService,
                                 AuditVerifyService verifyService) {
-        this(writeService, queryService, verifyService, null, null, null);
+        this(writeService, queryService, verifyService, null, null, null, null);
+    }
+
+    public AuditEventController(AuditWriteService writeService,
+                                AuditQueryService queryService,
+                                AuditVerifyService verifyService,
+                                ClientAccessAuditService clientAccessAuditService) {
+        this(writeService, queryService, verifyService, null, null, null, clientAccessAuditService);
     }
 
     @PostMapping("/events")
@@ -124,6 +137,32 @@ public class AuditEventController {
     public java.util.Map<String, Object> export(@RequestParam(required = false) String actorId,
                                                 @RequestParam(required = false) String resourceId) {
         return auditExportService.export(java.util.Optional.ofNullable(actorId), java.util.Optional.ofNullable(resourceId));
+    }
+
+    @PostMapping("/access")
+    public ResponseEntity<ClientAccessAuditResponse> recordAccess(@Valid @RequestBody ClientAccessAuditRequest request) {
+        if (clientAccessAuditService == null) {
+            throw new IllegalStateException("Client access audit service is not configured");
+        }
+        var saved = clientAccessAuditService.recordAccess(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ClientAccessAuditResponse.from(saved));
+    }
+
+    @GetMapping("/access")
+    public java.util.List<ClientAccessAuditResponse> queryAccess(
+            @RequestParam(required = false) String actorId,
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) String resourceId,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        if (clientAccessAuditService == null) {
+            return java.util.List.of();
+        }
+        return clientAccessAuditService.query(actorId, resourceType, resourceId, action, from, to)
+                .stream()
+                .map(ClientAccessAuditResponse::from)
+                .toList();
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

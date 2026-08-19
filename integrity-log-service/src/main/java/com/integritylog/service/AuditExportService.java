@@ -33,7 +33,7 @@ public class AuditExportService {
 
     public Map<String, Object> export(Optional<String> actorId, Optional<String> resourceId) {
         // build spec via existing AuditEventSpecifications by creating a simple query DTO
-        var q = new com.integritylog.service.AuditEventQuery(actorId.orElse(null), resourceId.orElse(null), null, null, null, null);
+        var q = new com.integritylog.service.AuditEventQuery(actorId.orElse(null), null, resourceId.orElse(null), null, null, null);
         var spec = AuditEventSpecifications.matches(q);
         List<AuditEvent> events = repository.findAll(spec).stream()
                 .sorted(Comparator.comparing(AuditEvent::getSequenceNumber, Comparator.nullsFirst(Comparator.naturalOrder())))

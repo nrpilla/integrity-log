@@ -2,6 +2,7 @@ package com.integritylog.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.integritylog.domain.AuditEvent;
+import com.integritylog.repository.AuditEventOriginalRepository;
 import com.integritylog.repository.AuditEventRepository;
 import com.integritylog.web.dto.CreateAuditEventRequest;
 import com.integritylog.web.dto.ViolationType;
@@ -26,9 +27,16 @@ class AuditVerifyServiceTest {
     @Autowired
     private AuditEventRepository repository;
 
+    @Autowired
+    private AuditEventOriginalRepository originals;
+
+    @Autowired
+    private CryptoService cryptoService;
+
     @BeforeEach
     @AfterEach
     void cleanUp() {
+        originals.deleteAll();
         repository.deleteAll();
     }
 
@@ -57,6 +65,25 @@ class AuditVerifyServiceTest {
         assertThat(response.eventCount()).isEqualTo(2);
         assertThat(response.brokenAtSequence()).isNull();
         assertThat(response.violationType()).isNull();
+    }
+
+    @Test
+    void verifyChainAcceptsLegitimateRedactionWithProof() {
+        AuditEvent event = writeService.append(new CreateAuditEventRequest(
+                "CONSENT_GRANTED",
+                "user-1",
+                "consent",
+                "c-100",
+                payload("{\"source\":\"redacted-1\",\"ssn\":\"123-45-6789\"}")
+        ));
+
+        RedactionService redactionService = new RedactionService(repository, originals, cryptoService, new HashChainService());
+        redactionService.redact(event.getId(), java.util.List.of("ssn"), "admin@example.com");
+
+        var response = verifyService.verifyChain();
+
+        assertThat(response.valid()).isTrue();
+        assertThat(response.eventCount()).isEqualTo(1);
     }
 
     @Test
